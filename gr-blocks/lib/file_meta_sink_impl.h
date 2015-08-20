@@ -49,6 +49,8 @@ namespace gr {
       size_t d_extra_size;
       bool d_updated;
       bool d_unbuffered;
+      // True to write only the header
+      bool d_hdr_only;
 
       FILE *d_new_fp, *d_new_hdr_fp;
       FILE *d_fp, *d_hdr_fp;
@@ -71,7 +73,8 @@ namespace gr {
 			  gr_file_types type=GR_FILE_FLOAT, bool complex=true,
 			  size_t max_segment_size=1000000,
 			  const std::string &extra_dict="",
-			  bool detached_header=false);
+			  bool detached_header=false,
+                          bool hdr_only=false);
       ~file_meta_sink_impl();
 
       bool open(const std::string &filename);

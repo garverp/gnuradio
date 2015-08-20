@@ -61,7 +61,8 @@ namespace gr {
 			 gr_file_types type, bool complex,
 			 size_t max_segment_size,
 			 const std::string &extra_dict,
-			 bool detached_header)
+			 bool detached_header,
+                         bool hdr_only)
     {
       return gnuradio::get_initial_sptr
 	(new file_meta_sink_impl(itemsize, filename,
@@ -69,7 +70,8 @@ namespace gr {
 				 type, complex,
 				 max_segment_size,
 				 extra_dict,
-				 detached_header));
+				 detached_header,
+                                 hdr_only));
     }
 
     file_meta_sink_impl::file_meta_sink_impl(size_t itemsize,
@@ -78,14 +80,15 @@ namespace gr {
 					     gr_file_types type, bool complex,
 					     size_t max_segment_size,
 					     const std::string &extra_dict,
-					     bool detached_header)
+					     bool detached_header,
+                                             bool hdr_only)
       : sync_block("file_meta_sink",
 		      io_signature::make(1, 1, itemsize),
 		      io_signature::make(0, 0, 0)),
 	d_itemsize(itemsize),
 	d_samp_rate(samp_rate), d_relative_rate(relative_rate),
 	d_max_seg_size(max_segment_size), d_total_seg_size(0),
-	d_updated(false), d_unbuffered(false)
+	d_updated(false), d_unbuffered(false),d_hdr_only(hdr_only)
     {
       d_fp = 0;
       d_new_fp = 0;
@@ -96,9 +99,11 @@ namespace gr {
 	d_state = STATE_DETACHED;
       else
 	d_state = STATE_INLINE;
-
+      if( detached_header == false && hdr_only == true){
+        throw std::runtime_error("Headers only can't be used with inline headers\n");
+      }
       if(!open(filename))
-	throw std::runtime_error("file_meta_sink: can't open file\n");
+          throw std::runtime_error("file_meta_sink: can't open file\n");
 
       pmt::pmt_t timestamp = pmt::make_tuple(pmt::from_uint64(0),
 					     pmt::from_double(0));
@@ -162,8 +167,9 @@ namespace gr {
 	std::string s = filename + ".hdr";
 	ret = _open(&d_new_hdr_fp, s.c_str());
       }
-
+      if( !d_hdr_only ){
       ret = ret && _open(&d_new_fp, filename.c_str());
+      }
       d_updated = true;
       return ret;
     }
@@ -229,12 +235,12 @@ namespace gr {
 	  d_hdr_fp = d_new_hdr_fp;		// install new file pointer
 	  d_new_hdr_fp = 0;
 	}
-
-	if(d_fp)
-	  fclose(d_fp);
-	d_fp = d_new_fp;		// install new file pointer
-	d_new_fp = 0;
-
+        if( !d_hdr_only ){
+          if(d_fp)
+            fclose(d_fp);
+          d_fp = d_new_fp;		// install new file pointer
+          d_new_fp = 0;
+        }
 	d_updated = false;
       }
     }
@@ -390,10 +396,10 @@ namespace gr {
       int  nwritten = 0;
 
       do_update();				// update d_fp is reqd
-
-      if(!d_fp)
-	return noutput_items;		// drop output on the floor
-
+      if( !d_hdr_only ){
+        if(!d_fp)
+	  return noutput_items;		// drop output on the floor
+      }
       uint64_t abs_N = nitems_read(0);
       uint64_t end_N = abs_N + (uint64_t)(noutput_items);
       std::vector<tag_t> all_tags;
@@ -407,13 +413,18 @@ namespace gr {
 	while(nwritten < item_offset) {
 	  size_t towrite = std::min(d_max_seg_size - d_total_seg_size,
 				    (size_t)(item_offset - nwritten));
-	  int count = fwrite(inbuf, d_itemsize, towrite, d_fp);
-	  if(count == 0)	// FIXME add error handling
-	    break;
-	  nwritten += count;
-	  inbuf += count * d_itemsize;
+          int count = 0;
+          if( !d_hdr_only ){
+            count = fwrite(inbuf, d_itemsize, towrite, d_fp);
+          }else{
+            count = towrite;
+          }
+          if(count == 0)	// FIXME add error handling
+            break;
+          nwritten += count;
+          inbuf += count * d_itemsize;
 
-	  d_total_seg_size += count;
+          d_total_seg_size += count;
 
 	  // Only add a new header if we are not at the position of the
 	  // next tag
@@ -442,7 +453,12 @@ namespace gr {
       while(nwritten < noutput_items) {
 	size_t towrite = std::min(d_max_seg_size - d_total_seg_size,
 				  (size_t)(noutput_items - nwritten));
-	int count = fwrite(inbuf, d_itemsize, towrite, d_fp);
+        int count = 0;
+        if( !d_hdr_only ){
+	  count = fwrite(inbuf, d_itemsize, towrite, d_fp);
+        }else{
+          count = towrite;
+        }
 	if(count == 0)	// FIXME add error handling
 	  break;
 	nwritten += count;
@@ -457,7 +473,7 @@ namespace gr {
 	}
       }
 
-      if(d_unbuffered)
+      if(d_unbuffered && !d_hdr_only)
 	fflush(d_fp);
 
       return nwritten;

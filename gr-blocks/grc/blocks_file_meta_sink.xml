@@ -8,7 +8,7 @@
 	<name>File Meta Sink</name>
 	<key>blocks_file_meta_sink</key>
 	<import>from gnuradio import gr, blocks</import>
-	<make>blocks.file_meta_sink($type.size*$vlen, $file, $samp_rate, $rel_rate, $type.dtype, $type.cplx, $max_seg_size, $extra_dict, $detached)
+	<make>blocks.file_meta_sink($type.size*$vlen, $file, $samp_rate, $rel_rate, $type.dtype, $type.cplx, $max_seg_size, $extra_dict, $detached, $hdr_only)
 self.$(id).set_unbuffered($unbuffered)</make>
 	<callback>set_unbuffered($unbuffered)</callback>
 	<callback>open($file)</callback>
@@ -114,7 +114,22 @@ self.$(id).set_unbuffered($unbuffered)</make>
 				<name>On</name>
 				<key>True</key>
 		</option>
-	</param>
+             </param>
+             <param>
+                <name>Header Only</name>
+                <key>hdr_only</key>
+                <value>False</value>
+                <type>bool</type>
+                <option>
+                   <name>Off</name>
+                   <key>False</key>
+                </option>
+                <option>
+                   <name>On</name>
+                   <key>True</key>
+                </option>
+             </param>
+
 	<check>$vlen &gt; 0</check>
 	<sink>
 		<name>in</name>

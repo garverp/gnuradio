@@ -91,13 +91,16 @@ namespace gr {
        *    information. Currently not supported.
        * \param detached_header (bool): Set to true to store the header
        *    info in a separate file (named filename.hdr)
+       * \param hdr_only (bool): Only write header. Can only use this
+       *                         with deatched_header=true
        */
       static sptr make(size_t itemsize, const std::string &filename,
 		       double samp_rate=1, double relative_rate=1,
 		       gr_file_types type=GR_FILE_FLOAT, bool complex=true,
 		       size_t max_segment_size=1000000,
 		       const std::string &extra_dict="",
-		       bool detached_header=false);
+		       bool detached_header=false,
+                       bool hdr_only=true);
 
       virtual bool open(const std::string &filename) = 0;
       virtual void close() = 0;
